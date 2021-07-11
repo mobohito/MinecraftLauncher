@@ -1,0 +1,2 @@
+# MinecraftLauncher
+MinecraftLauncherCore(Developing)
