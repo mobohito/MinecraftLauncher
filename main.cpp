@@ -11,13 +11,7 @@
 #include <QNetworkRequest>
 #include <QSslConfiguration>
 #include <QDir>
-
-
-
-class autocrteatedir{
-public:
-    autocrteatedir(QString path);
-};
+#include <QCryptographicHash>
 
 class downloader{
 
@@ -30,14 +24,34 @@ public:
     QFile *downloadFile;
     QUrl url = QUrl::fromUserInput("");
 
-
-    downloader(QString path,QString url);
-    //~downloader();
-    void download (QString path,QString url);
-    void connector();
+    downloader(QString path,QString url, QString sha1);
 
 };
 
+
+void autocrteatedir(QString path){
+    int count = path.count("/");
+    for (int i=1;i<=count-1;i++){
+
+        //qDebug()<<path.section("/",0,i);
+        QString usefulPATH = path.section("/",0,i);
+
+        QDir dir;
+        //qDebug()<<dir.exists(usefulPATH);
+        if  (!dir.exists(usefulPATH)){
+            dir.mkdir(usefulPATH);
+        }
+    }
+}
+
+
+QString getsha1(QFile *file){
+    file->open(QIODevice::ReadOnly);
+    QByteArray ba = QCryptographicHash::hash(file->readAll(), QCryptographicHash::Sha1);
+
+    file->close();
+    return QString(ba.toHex());
+}
 
 
 int main(int argc, char *argv[])
@@ -73,19 +87,29 @@ int main(int argc, char *argv[])
 
         QString path = artiObj.take("path").toString();
         QString url = artiObj.take("url").toString();
+        QString sha1 = artiObj.take("sha1").toString();
 
         QString jueduilujing = root + "/libraries/" + path;
 
         //qDebug()<<jueduilujing;
         //qDebug()<<url;
 
-        QFile checkfileexies(jueduilujing);
-        bool filexise = checkfileexies.exists();
-        qDebug()<<filexise;
+        QFile *libFile = new QFile(jueduilujing);
+        bool filexise = libFile->exists();
 
         if (!filexise){
-            downloader *download = new downloader(jueduilujing,url);
+
+            downloader *download = new downloader(jueduilujing,url,sha1);
             download = Q_NULLPTR;
+        }
+        else {
+            if (sha1 != getsha1(libFile)){
+                qDebug()<<"The File" + libFile->fileName() + "sha1 is not fit";
+                libFile->remove();
+
+                downloader *download = new downloader(jueduilujing,url, sha1);
+                download = Q_NULLPTR;
+            }
         }
 
         //qDebug()<<jueduilujing;
@@ -99,11 +123,11 @@ int main(int argc, char *argv[])
 }
 
 
-void downloader::download(QString path,QString url){
+downloader::downloader(QString path,QString url, QString sha1){
     int a = path.lastIndexOf("/");
         QDir dir;
         if (!dir.exists(path.left(a))){
-            autocrteatedir acd(path);
+            autocrteatedir(path);
         }
 
     downloadFile = new QFile(path);
@@ -121,13 +145,10 @@ void downloader::download(QString path,QString url){
     reply = manager.get(request);
 
 
-}
-
-void downloader::connector(){
-
     QObject::connect(reply,&QNetworkReply::finished,[=]()->void{
         downloadFile->close();
         qDebug()<<"download finished";
+
     });
 
 
@@ -136,44 +157,3 @@ void downloader::connector(){
         downloadFile->write(reply->readAll());
     });
 }
-
-downloader::downloader(QString path,QString url){
-    download(path,url);
-    connector();
-}
-
-
-autocrteatedir::autocrteatedir(QString path){
-    int count = path.count("/");
-    for (int i=1;i<=count-1;i++){
-
-        //qDebug()<<path.section("/",0,i);
-        QString usefulPATH = path.section("/",0,i);
-
-        QDir dir;
-        //qDebug()<<dir.exists(usefulPATH);
-        if  (!dir.exists(usefulPATH)){
-            dir.mkdir(usefulPATH);
-        }
-    }
-
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
